@@ -1,0 +1,21 @@
+{
+    "manifest_version": 2,
+    "name": "Resume Filler",
+    "version": "1.0",
+    "description": "Extract application data and send it to Resume Filler application.",
+    "permissions": [
+      "activeTab",
+      "scripting",
+      "tabs",
+      "<all_urls>"
+    ],
+    "browser_specific_settings": {
+      "gecko": {
+        "id": "{83008080-b9f8-47c1-827d-63480a557c56}"
+      }
+    },
+    "browser_action": {
+      "default_popup": "popup.html"
+    }
+  }
+  
