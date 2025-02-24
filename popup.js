@@ -3,7 +3,7 @@ document.getElementById("extract-btn").addEventListener("click", async () => {
       const tabs = await browser.tabs.query({ active: true, currentWindow: true });
       const activeTab = tabs[0];
 
-      // Step 1: Extract full DOM (outerHTML) instead of just innerText
+      // Step 1: Extract full DOM (outerHTML)
       const results = await browser.scripting.executeScript({
           target: { tabId: activeTab.id },
           func: () => document.documentElement.outerHTML,
@@ -13,7 +13,6 @@ document.getElementById("extract-btn").addEventListener("click", async () => {
       console.log("Extracted DOM length:", domContent.length);
 
       // Step 2: Send DOM to backend /api/application/enhance
-      // Assume resume content is stored locally or fetched from your app state (you’ll need to handle this)
       const resumeResponse = await fetch('http://127.0.0.1:8000/api/resume/last_upload', { method: 'GET' });
       const resumeData = await resumeResponse.json();
       if (!resumeData.content) {
@@ -24,38 +23,64 @@ document.getElementById("extract-btn").addEventListener("click", async () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-              enhancement_focus: "Clarity & Conciseness", // Default or fetch from UI if needed
+              enhancement_focus: "Clarity & Conciseness",
               resume_content: resumeData.content,
-              application_content: domContent, // Use DOM instead of text
-              industry_focus: "Technology", // Default or fetch from UI
-              target_keywords: "software, developer", // Default or fetch from UI
-              company_culture: "innovative", // Default or fetch from UI
-              additional_info: {} // Default or fetch from UI if needed
+              application_content: domContent,
+              industry_focus: "Technology",
+              target_keywords: "software, developer",
+              company_culture: "innovative",
+              additional_info: {}
           }),
       });
 
       const enhanceData = await enhanceResponse.json();
       console.log("Response from FastAPI enhance:", enhanceData);
 
-      // Step 3: Parse enhanced content into key-value pairs
-      const fieldValues = {};
+      // Step 3: Parse enhanced content into field-value-selector triples
+      const fieldData = {};
       enhanceData.enhanced_content.split("\n").forEach(line => {
-          const [field, value] = line.split(": ");
-          if (field && value) fieldValues[field.toLowerCase()] = value;
+          const match = line.match(/(.+?):\s(.+?)(?:\s\[(.*?)\])?$/);
+          if (match) {
+              const field = match[1].trim();
+              const value = match[2].trim();
+              const selector = match[3] ? match[3].trim() : null;
+              fieldData[field.toLowerCase()] = { value, selector };
+          }
       });
 
-      // Step 4: Inject script to fill fields based on AI-identified selectors
+      // Step 4: Inject script to fill fields using AI-provided selectors with fallbacks
       await browser.scripting.executeScript({
           target: { tabId: activeTab.id },
-          func: (values) => {
-              const fieldMappings = {}; // AI will infer mappings in the backend
-              for (const [field, value] of Object.entries(values)) {
-                  // Use a generic selector or rely on AI-provided mappings (if added to response)
-                  const input = document.querySelector(`input[name="${field}"], input[placeholder*="${field}"], textarea[name="${field}"]`);
-                  if (input) input.value = value;
+          func: (data) => {
+              for (const [field, { value, selector }] of Object.entries(data)) {
+                  let input;
+                  if (selector) {
+                      // Try the AI-provided selector first
+                      input = document.querySelector(selector);
+                      if (!input) {
+                          // Fallback: Use generic selectors based on field name
+                          input = document.querySelector(
+                              `input[name="${field}"], input[placeholder*="${field}"], textarea[name="${field}"], textarea[placeholder*="${field}"]`
+                          );
+                      }
+                  } else {
+                      // If no selector provided, use generic selectors
+                      input = document.querySelector(
+                          `input[name="${field}"], input[placeholder*="${field}"], textarea[name="${field}"], textarea[placeholder*="${field}"]`
+                      );
+                  }
+
+                  if (input) {
+                      input.value = value;
+                      // Simulate user input to trigger any event listeners
+                      input.dispatchEvent(new Event('input'));
+                      input.dispatchEvent(new Event('change'));
+                  } else {
+                      console.warn(`No input found for field: ${field}`);
+                  }
               }
           },
-          args: [fieldValues],
+          args: [fieldData],
       });
 
       window.close();
