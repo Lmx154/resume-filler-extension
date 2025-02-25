@@ -12,21 +12,21 @@ document.getElementById("extract-btn").addEventListener("click", async () => {
       const domContent = results[0].result;
       console.log("Extracted DOM length:", domContent.length);
   
-      // Step 2: Fetch resume and customization settings
+      // Step 2: Fetch resume data (including customization settings)
       const resumeResponse = await fetch('http://127.0.0.1:8000/api/resume/last_upload', { method: 'GET' });
       const resumeData = await resumeResponse.json();
       if (!resumeData.content) {
         throw new Error('No resume data available. Please upload a resume first.');
       }
   
-      // Fetch customization settings from Enhance Application
-      const settingsResponse = await fetch('http://127.0.0.1:8000/api/application/settings', { method: 'GET' });
-      const settingsData = await settingsResponse.json();
-      if (!settingsData.status || settingsData.status !== 'success') {
-        throw new Error('Failed to load enhancement settings. Please configure them in Enhance Application.');
-      }
-  
-      const { enhancement_focus, industry_focus, target_keywords, company_culture, additional_info } = settingsData;
+      // Extract customization settings from resume data
+      const {
+        enhancement_focus = "Clarity & Conciseness",
+        industry_focus = "Technology",
+        target_keywords = "",
+        company_culture = "",
+        additional_info = {}
+      } = resumeData.settings || {};
   
       // Step 3: Send to backend /api/application/enhance
       const enhanceResponse = await fetch("http://127.0.0.1:8000/api/application/enhance", {
